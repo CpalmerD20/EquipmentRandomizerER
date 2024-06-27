@@ -9,38 +9,26 @@ namespace ERBingoRandomizer.Randomizer;
 
 public partial class BingoRandomizer
 {
-    private int getRandomWeapon(int id, IReadOnlyList<int> weapons)
+    private int randomizeStartingWeapon(int id, IReadOnlyList<int> weapons)
     {
-        while (true)
-        {
-            int newWeapon = weapons[_random.Next(weapons.Count)];
-            if (_weaponDictionary.ContainsKey(newWeapon) && newWeapon != id)
-            {
-                return washWeaponMetadata(newWeapon);
-            }
-        }
-    }
-    private int chanceGetRandomWeapon(int id, IReadOnlyList<int> weapons)
-    {
-        return ReturnNoItem(id) ? Const.NoItem : getRandomWeapon(id, weapons);
+        logItem("## randomizing a starting weapon...");
+        int limit = weapons.Count;
+        int newID = weapons[_random.Next(limit)];
 
+        while (!_weaponDictionary.ContainsKey(newID))
+        { // TODO update _weaponDictionary for DLC weapons
+            newID = weapons[_random.Next(limit)];
+        }
+        return washWeaponMetadata(newID);
     }
-    private int chanceGetRandomArmor(int id, byte type)
+    private int exchangeArmorPiece(int id, byte type)
     {
         return ReturnNoItem(id) ? Const.NoItem : getRandomArmor(id, type);
-
     }
     private int getRandomArmor(int id, byte type)
     {
-        while (true)
-        {
-            IReadOnlyList<Param.Row> legs = _armorTypeDictionary[type];
-            int newLegs = legs[_random.Next(legs.Count)].ID;
-            if (newLegs != id)
-            {
-                return newLegs;
-            }
-        }
+        IReadOnlyList<Param.Row> armors = _armorTypeDictionary[type];
+        return armors[_random.Next(armors.Count)].ID;
     }
     private bool ReturnNoItem(int id)
     {
@@ -51,18 +39,13 @@ public partial class BingoRandomizer
         if (id == Const.NoItem)
         {
             if (target > Config.AddRemoveWeaponChance)
-            {
                 return true;
-            }
         }
         else
         {
             if (target < Config.AddRemoveWeaponChance)
-            {
                 return true;
-            }
         }
-
         return false;
     }
     private bool hasWeaponOfType(CharaInitParam chr, params ushort[] types)
@@ -71,11 +54,9 @@ public partial class BingoRandomizer
         {
             throw new ArgumentException("types cannot be null, and must contain 1 or more values. Please pass in a valid weapon type.", nameof(types));
         }
-
         return checkWeaponType(chr.wepRight, types) || checkWeaponType(chr.wepleft, types)
             || checkWeaponType(chr.subWepLeft, types) || checkWeaponType(chr.subWepRight, types)
             || checkWeaponType(chr.subWepLeft3, types) || checkWeaponType(chr.subWepRight3, types);
-
     }
     private bool checkWeaponType(int id, params ushort[] types)
     {
@@ -84,7 +65,6 @@ public partial class BingoRandomizer
             return false;
         }
         return _weaponDictionary.TryGetValue(id, out EquipParamWeapon? wep) && types.Contains(wep.wepType);
-
     }
     private bool hasSpellOfType(CharaInitParam chr, params byte[] types)
     {
@@ -137,7 +117,7 @@ public partial class BingoRandomizer
         {
             chr.equipSpell02 = chanceRandomMagic(chr.equipSpell02, chr, Const.SorceryType, spells);
         }
-        giveRandomWeapon(chr, Const.StaffType);
+        giveUsableWeapon(chr, Const.StaffType);
     }
     private void randomizeIncantations(CharaInitParam chr, IReadOnlyList<int> spells)
     {
@@ -146,7 +126,7 @@ public partial class BingoRandomizer
         {
             chr.equipSpell01 = chanceRandomMagic(chr.equipSpell01, chr, Const.IncantationType, spells);
         }
-        giveRandomWeapon(chr, Const.SealType);
+        giveUsableWeapon(chr, Const.SealType);
     }
     private int getRandomMagic(CharaInitParam chr, byte type, IReadOnlyList<int> spells)
     {
@@ -166,7 +146,7 @@ public partial class BingoRandomizer
         return ReturnNoItem(id) ? Const.NoItem : getRandomMagic(chr, type, spells);
 
     }
-    private void giveRandomWeapon(CharaInitParam chr, ushort type)
+    private void giveUsableWeapon(CharaInitParam chr, ushort type)
     {
         EquipParamWeapon? wep;
         if (_weaponDictionary.TryGetValue(chr.wepleft, out wep))
@@ -178,7 +158,7 @@ public partial class BingoRandomizer
         }
         else
         {
-            chr.wepleft = getRandomWeapon(chr, type);
+            chr.wepleft = getUsableWeapon(chr, type);
             return;
         }
 
@@ -191,7 +171,7 @@ public partial class BingoRandomizer
         }
         else
         {
-            chr.wepRight = getRandomWeapon(chr, type);
+            chr.wepRight = getUsableWeapon(chr, type);
             return;
         }
 
@@ -204,7 +184,7 @@ public partial class BingoRandomizer
         }
         else
         {
-            chr.subWepLeft = getRandomWeapon(chr, type);
+            chr.subWepLeft = getUsableWeapon(chr, type);
             return;
         }
 
@@ -217,7 +197,7 @@ public partial class BingoRandomizer
         }
         else
         {
-            chr.subWepRight = getRandomWeapon(chr, type);
+            chr.subWepRight = getUsableWeapon(chr, type);
             return;
         }
 
@@ -230,18 +210,21 @@ public partial class BingoRandomizer
         }
         else
         {
-            chr.subWepLeft3 = getRandomWeapon(chr, type);
+            chr.subWepLeft3 = getUsableWeapon(chr, type);
             return;
         }
 
-        chr.subWepRight3 = getRandomWeapon(chr, type);
+        chr.subWepRight3 = getUsableWeapon(chr, type);
     }
-    private int getRandomWeapon(CharaInitParam chr, ushort type)
+    private int getUsableWeapon(CharaInitParam chr, ushort type)
     {
+        logItem("Calling getUsableWeapon...");
         IReadOnlyList<Param.Row> table = _weaponTypeDictionary[type];
+        int limit = table.Count;
+
         while (true)
         {
-            int i = _random.Next() % table.Count;
+            int i = _random.Next() % limit;
             if (_weaponDictionary.TryGetValue(table[i].ID, out EquipParamWeapon? entry))
             {
                 if (chrCanUseWeapon(entry, chr))
